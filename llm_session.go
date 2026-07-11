@@ -1,6 +1,8 @@
 package llmsdk
 
-import "io"
+import (
+	"io"
+)
 
 type LLMSession struct {
 	Chat        Chat
@@ -17,7 +19,7 @@ type BufferedResponse struct {
 	chat    *Chat
 }
 
-func (bresp *BufferedResponse) ReadB(buf []byte) (int, error) {
+func (bresp *BufferedResponse) Read(buf []byte) (int, error) {
 	n, err := bresp.llmResp.Read(buf)
 	bresp.bufR = append(bresp.bufR, buf[:n]...)
 
@@ -42,15 +44,15 @@ func (chat *Chat) AddMessage(message Message) {
 	chat.Messages = append(chat.Messages, message)
 }
 
-func (llm *LLMSession) LLMSend(message Message) (BufferedResponse, error) {
+func (llm *LLMSession) LLMSend(message Message) (*BufferedResponse, error) {
 	llm.Chat.AddMessage(message)
 
 	resp, err := llm.LLMProvider.Send(llm.Chat.Messages)
 	if err != nil {
-		return BufferedResponse{}, err
+		return &BufferedResponse{}, err
 	}
 
-	bufResp := BufferedResponse{llmResp: &resp, chat: &llm.Chat}
+	bufResp := BufferedResponse{resp, make([]byte, 0, 100), &llm.Chat}
 
-	return bufResp, nil
+	return &bufResp, nil
 }

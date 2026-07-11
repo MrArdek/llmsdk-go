@@ -31,13 +31,13 @@ func (resp *LLMResponse) Read(buf []byte) (int, error) {
 	}
 
 	n := copy(buf, resp.data[resp.pos:])
-	resp.pos = n
+	resp.pos += n
 
 	return n, nil
 }
 
 type LLMProvider interface {
-	Send(messages []Message) (LLMResponse, error)
+	Send(messages []Message) (*LLMResponse, error)
 	IsActive() bool
 	GetModelInf() ModelInf
 }
