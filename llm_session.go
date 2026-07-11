@@ -18,11 +18,14 @@ type BufferedResponse struct {
 }
 
 func (bresp *BufferedResponse) ReadB(buf []byte) (int, error) {
-	n, err := bresp.llmResp.Read(bresp.bufR)
-	buf = bresp.bufR
+	n, err := bresp.llmResp.Read(buf)
+	bresp.bufR = append(bresp.bufR, buf[:n]...)
+
 	if err != nil {
 		if err == io.EOF {
 			bresp.chat.Messages = append(bresp.chat.Messages, Message{Role: Assistant, Content: string(bresp.bufR)})
+
+			return n, err
 		}
 
 		return 0, err
