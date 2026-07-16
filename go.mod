@@ -1,3 +1,3 @@
-module llmsdk-go
+module llmsdk
 
 go 1.26.4

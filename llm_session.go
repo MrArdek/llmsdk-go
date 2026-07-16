@@ -1,7 +1,7 @@
 package llmsdk
 
 import (
-	"io"
+	"log"
 )
 
 type LLMSession struct {
@@ -13,46 +13,24 @@ type Chat struct {
 	InputTokens  uint64
 	OutputTokens uint64
 }
-type BufferedResponse struct {
-	llmResp io.Reader
-	bufR    []byte
-	chat    *Chat
-}
-
-func (bresp *BufferedResponse) Read(buf []byte) (int, error) {
-	n, err := bresp.llmResp.Read(buf)
-	bresp.bufR = append(bresp.bufR, buf[:n]...)
-
-	if err != nil {
-		if err == io.EOF {
-			bresp.chat.Messages = append(bresp.chat.Messages, Message{Role: Assistant, Content: string(bresp.bufR)})
-
-			return n, err
-		}
-
-		return 0, err
-	}
-
-	return n, nil
-}
 
 func (chat *Chat) ClearChat() {
-	*chat = Chat{}
+	*chat = Chat{make([]Message, 0, 20), 0, 0}
 }
 
 func (chat *Chat) AddMessage(message Message) {
 	chat.Messages = append(chat.Messages, message)
 }
 
-func (llm *LLMSession) LLMSend(message Message) (*BufferedResponse, error) {
+func (llm *LLMSession) LLMSend(message Message) (*LLMResponse, error) {
 	llm.Chat.AddMessage(message)
 
 	resp, err := llm.LLMProvider.Send(llm.Chat.Messages)
 	if err != nil {
-		return &BufferedResponse{}, err
+		log.Println("error while sending message!")
+		log.Println(err.Error())
+		return &LLMResponse{}, err
 	}
 
-	bufResp := BufferedResponse{resp, make([]byte, 0, 100), &llm.Chat}
-
-	return &bufResp, nil
+	return resp, nil
 }
