@@ -1,9 +1,7 @@
 package llmsdk
 
 import (
-	"encoding/json"
 	"io"
-	"strings"
 )
 
 type Role string
@@ -20,13 +18,12 @@ type Message struct {
 }
 
 type LLMResponse struct {
-	Content strings.Builder
+	Message Message
 	Tokens  uint64
 	Done    bool
-	data    []byte
-	pos     int
-	dec     *json.Decoder
+	Reader  io.Reader
 }
+
 type Settings struct {
 	Temperature float64 `json:"temperature"`
 	Seed        int     `json:"seed"`
@@ -39,17 +36,6 @@ type Settings struct {
 	NumPredict  int     `json:"num_predict"`
 	Think       bool    `json:"think"`
 	KeepAlive   int     `json:"keep_alive"`
-}
-
-func (resp *LLMResponse) Read(buf []byte) (int, error) {
-	if resp.pos >= len(resp.data) {
-		return 0, io.EOF
-	}
-
-	n := copy(buf, resp.data[resp.pos:])
-	resp.pos += n
-
-	return n, nil
 }
 
 type LLMProvider interface {

@@ -12,6 +12,7 @@
 *.test
 
 *.techsp
+test/
 
 # Code coverage profiles and other test artifacts
 *.out

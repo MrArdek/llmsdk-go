@@ -23,12 +23,12 @@ type Ollama struct {
 	Settings   *llmsdk.Settings
 }
 type ollamaRequest struct {
-	Model     string           `json:"model"`
-	Messages  []llmsdk.Message `json:"messages"`
-	Stream    bool             `json:"stream"`
-	Options   Options          `json:"options"`
-	Think     bool             `json:"think"`
-	KeepAlive int              `json:"keep_alive"`
+	Model    string           `json:"model"`
+	Messages []llmsdk.Message `json:"messages"`
+	Stream   bool             `json:"stream"`
+	// Options   Options          `json:"options"`
+	Think     bool `json:"think"`
+	KeepAlive int  `json:"keep_alive"`
 	// LogProbs bool `json:"logprobs"`
 	// TopLogprobs int `json:"top_logprobs"`
 	// I think we don't need this
@@ -47,6 +47,12 @@ type ollamaResponse struct {
 	EvalDuration       int            `json:"eval_duration"`
 	// logprobs... I think we don't need this now
 }
+type contentReader struct {
+	Data []byte
+	Dec  *json.Decoder
+	Pos  int
+	Resp ollamaResponse
+}
 type Options struct {
 	Seed        int     `json:"seed"`
 	Temperature float64 `json:"temperature"`
@@ -58,27 +64,43 @@ type Options struct {
 	NumPredict  int     `json:"num_predict"`
 }
 
+func (c *contentReader) Read(buf []byte) (int, error) {
+	if c.Pos >= len(c.Data) {
+		err := c.Dec.Decode(&c.Resp)
+		if err != nil {
+			return 0, err
+		}
+
+		c.Data = []byte(c.Resp.Message.Content)
+		c.Pos = 0
+	}
+
+	n := copy(buf, c.Data[c.Pos:])
+	c.Pos += n
+	return n, nil
+}
+
 func (l *Ollama) SetSettings(settings llmsdk.Settings) {
 	l.Settings = &settings
 }
 
 func (l *Ollama) Send(messages []llmsdk.Message) (*llmsdk.LLMResponse, error) {
-	opt := Options{
-		Seed:        l.Settings.Seed,
-		Temperature: l.Settings.Temperature,
-		TopK:        l.Settings.TopK,
-		TopP:        l.Settings.TopP,
-		MinP:        l.Settings.MinP,
-		Stop:        l.Settings.Stop,
-		NumCtx:      l.Settings.NumCtx,
-		NumPredict:  l.Settings.NumPredict,
-	}
+	//opt := Options{
+	//	Seed:        l.Settings.Seed,
+	//	Temperature: l.Settings.Temperature,
+	//	TopK:        l.Settings.TopK,
+	//	TopP:        l.Settings.TopP,
+	//	MinP:        l.Settings.MinP,
+	//	Stop:        l.Settings.Stop,
+	//	NumCtx:      l.Settings.NumCtx,
+	//	NumPredict:  l.Settings.NumPredict,
+	//}
 
 	req := ollamaRequest{
-		Model:     l.Model.Name,
-		Messages:  messages,
-		Stream:    l.Settings.Stream,
-		Options:   opt,
+		Model:    l.Model.Name,
+		Messages: messages,
+		Stream:   l.Settings.Stream,
+		// Options:   opt,
 		Think:     l.Settings.Think,
 		KeepAlive: l.Settings.KeepAlive,
 	}
@@ -89,10 +111,17 @@ func (l *Ollama) Send(messages []llmsdk.Message) (*llmsdk.LLMResponse, error) {
 		return &llmsdk.LLMResponse{}, err
 	}
 
-	log.Println(string(reqJson))
 	resp, err := l.HTTPClient.Post(baseURL, "application/json", bytes.NewReader(reqJson))
+	if err != nil {
+		log.Println("error while getting resp")
+		log.Println(err.Error())
+		return &llmsdk.LLMResponse{}, err
+	}
 	log.Println(resp)
-	return &llmsdk.LLMResponse{}, nil
+
+	dec := json.NewDecoder(resp.Body)
+	llmResp := llmsdk.LLMResponse{llmsdk.Message{}, 0, false, &contentReader{Data: make([]byte, 0), Dec: dec, Pos: 0}}
+	return &llmResp, nil
 }
 
 func (l *Ollama) GetModelInf() llmsdk.ModelInf {
