@@ -105,13 +105,13 @@ func (l *Ollama) Send(messages []llmsdk.Message) (*llmsdk.LLMResponse, error) {
 		KeepAlive: l.Settings.KeepAlive,
 	}
 
-	reqJson, err := json.Marshal(req)
+	reqJSON, err := json.Marshal(req)
 	if err != nil {
 		log.Println(err.Error())
 		return &llmsdk.LLMResponse{}, err
 	}
 
-	resp, err := l.HTTPClient.Post(baseURL, "application/json", bytes.NewReader(reqJson))
+	resp, err := l.HTTPClient.Post(baseURL, "application/json", bytes.NewReader(reqJSON))
 	if err != nil {
 		log.Println("error while getting resp")
 		log.Println(err.Error())

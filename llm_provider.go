@@ -24,6 +24,22 @@ type LLMResponse struct {
 	Reader  io.Reader
 }
 
+func (r *LLMResponse) Read(buf []byte) (int, error) {
+	n, err := r.Reader.Read(buf)
+	r.Message.Content = r.Message.Content + string(buf[:n])
+
+	if err != nil {
+		if err == io.EOF {
+			r.Done = true
+			r.Message.Role = Assistant
+			return n, io.EOF
+		}
+		return 0, err
+	}
+
+	return n, nil
+}
+
 type Settings struct {
 	Temperature float64 `json:"temperature"`
 	Seed        int     `json:"seed"`
