@@ -10,6 +10,7 @@ const (
 	User      Role = "user"
 	System    Role = "system"
 	Assistant Role = "assistant"
+	Tool      Role = "tool"
 )
 
 type Message struct {
@@ -22,14 +23,21 @@ type LLMResponse struct {
 	Tokens  uint64
 	Done    bool
 	Reader  io.Reader
+	buf     []byte
 }
 
 func (r *LLMResponse) Read(buf []byte) (int, error) {
 	n, err := r.Reader.Read(buf)
-	r.Message.Content = r.Message.Content + string(buf[:n])
+
+	if r.buf == nil {
+		r.buf = make([]byte, 0, 1024)
+	}
+
+	r.buf = append(r.buf, buf[:n]...)
 
 	if err != nil {
 		if err == io.EOF {
+			r.Message.Content = string(r.buf)
 			r.Done = true
 			r.Message.Role = Assistant
 			return n, io.EOF

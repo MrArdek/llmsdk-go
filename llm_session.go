@@ -15,7 +15,7 @@ type Chat struct {
 }
 
 func (chat *Chat) ClearChat() {
-	*chat = Chat{make([]Message, 0, 20), 0, 0}
+	chat.Messages = chat.Messages[:0]
 }
 
 func (chat *Chat) AddMessage(message Message) {
@@ -29,7 +29,7 @@ func (llm *LLMSession) LLMSend(message Message) (*LLMResponse, error) {
 	if err != nil {
 		log.Println("error while sending message!")
 		log.Println(err.Error())
-		return &LLMResponse{}, err
+		return nil, err
 	}
 
 	return resp, nil

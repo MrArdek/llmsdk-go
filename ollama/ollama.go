@@ -3,6 +3,7 @@ package ollama
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 
@@ -68,6 +69,10 @@ func (c *contentReader) Read(buf []byte) (int, error) {
 	if c.Pos >= len(c.Data) {
 		err := c.Dec.Decode(&c.Resp)
 		if err != nil {
+			if err == io.EOF {
+				return 0, io.EOF
+			}
+
 			return 0, err
 		}
 
@@ -120,7 +125,12 @@ func (l *Ollama) Send(messages []llmsdk.Message) (*llmsdk.LLMResponse, error) {
 	log.Println(resp)
 
 	dec := json.NewDecoder(resp.Body)
-	llmResp := llmsdk.LLMResponse{llmsdk.Message{}, 0, false, &contentReader{Data: make([]byte, 0), Dec: dec, Pos: 0}}
+	defer resp.Body.Close()
+
+	llmResp := llmsdk.LLMResponse{
+		Message: llmsdk.Message{},
+		Reader:  &contentReader{Data: make([]byte, 0), Dec: dec, Pos: 0},
+	}
 	return &llmResp, nil
 }
 
