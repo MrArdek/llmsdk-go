@@ -13,13 +13,13 @@ import (
 // Сделано для удобства, непредпологается что URL будет менятся часто
 const baseURL = "http://localhost:11434/api/chat"
 
-func GetOllamaProvider(modelName string, client *http.Client, settings llmsdk.Settings) llmsdk.LLMProvider {
-	ol := Ollama{Model: llmsdk.ModelInf{Name: modelName}, HTTPClient: client, Settings: &settings}
+func NewOllamaProvider(modelName string, client *http.Client, settings *llmsdk.Settings) llmsdk.LLMProvider {
+	ol := Ollama{Model: llmsdk.ModelInfo{Name: modelName}, HTTPClient: client, Settings: settings}
 	return &ol
 }
 
 type Ollama struct {
-	Model      llmsdk.ModelInf
+	Model      llmsdk.ModelInfo
 	HTTPClient *http.Client
 	Settings   *llmsdk.Settings
 }
@@ -85,8 +85,8 @@ func (c *contentReader) Read(buf []byte) (int, error) {
 	return n, nil
 }
 
-func (l *Ollama) SetSettings(settings llmsdk.Settings) {
-	l.Settings = &settings
+func (l *Ollama) SetSettings(settings *llmsdk.Settings) {
+	l.Settings = settings
 }
 
 func (l *Ollama) Send(messages []llmsdk.Message) (*llmsdk.LLMResponse, error) {
@@ -122,10 +122,9 @@ func (l *Ollama) Send(messages []llmsdk.Message) (*llmsdk.LLMResponse, error) {
 		log.Println(err.Error())
 		return &llmsdk.LLMResponse{}, err
 	}
-	log.Println(resp)
 
-	dec := json.NewDecoder(resp.Body)
 	defer resp.Body.Close()
+	dec := json.NewDecoder(resp.Body)
 
 	llmResp := llmsdk.LLMResponse{
 		Message: llmsdk.Message{},
@@ -134,6 +133,6 @@ func (l *Ollama) Send(messages []llmsdk.Message) (*llmsdk.LLMResponse, error) {
 	return &llmResp, nil
 }
 
-func (l *Ollama) GetModelInf() llmsdk.ModelInf {
+func (l *Ollama) GetModelInfo() llmsdk.ModelInfo {
 	return l.Model
 }

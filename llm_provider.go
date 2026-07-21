@@ -64,10 +64,10 @@ type Settings struct {
 
 type LLMProvider interface {
 	Send(messages []Message) (*LLMResponse, error)
-	GetModelInf() ModelInf
-	SetSettings(Settings)
+	GetModelInfo() ModelInfo
+	SetSettings(*Settings)
 }
 
-type ModelInf struct {
+type ModelInfo struct {
 	Name string `json:"name"`
 }
