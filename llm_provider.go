@@ -18,6 +18,10 @@ type Message struct {
 	Content string `json:"content"`
 }
 
+type ChuckedMessage struct {
+	Model string `json:"model"`
+}
+
 type LLMResponse struct {
 	Message Message
 	Tokens  uint64

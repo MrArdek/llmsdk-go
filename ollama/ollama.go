@@ -1,3 +1,4 @@
+// Package ollama implements LLMProvider to connect models from ollama
 package ollama
 
 import (
@@ -10,7 +11,6 @@ import (
 	"llmsdk"
 )
 
-// Сделано для удобства, непредпологается что URL будет менятся часто
 const baseURL = "http://localhost:11434/api/chat"
 
 func NewOllamaProvider(modelName string, client *http.Client, settings *llmsdk.Settings) llmsdk.LLMProvider {
@@ -24,15 +24,14 @@ type Ollama struct {
 	Settings   *llmsdk.Settings
 }
 type ollamaRequest struct {
-	Model    string           `json:"model"`
-	Messages []llmsdk.Message `json:"messages"`
-	Stream   bool             `json:"stream"`
-	// Options   Options          `json:"options"`
-	Think     bool `json:"think"`
-	KeepAlive int  `json:"keep_alive"`
-	// LogProbs bool `json:"logprobs"`
-	// TopLogprobs int `json:"top_logprobs"`
-	// I think we don't need this
+	Model       string           `json:"model"`
+	Messages    []llmsdk.Message `json:"messages"`
+	Stream      bool             `json:"stream"`
+	Options     Options          `json:"options"`
+	Think       bool             `json:"think,omitempty"`
+	KeepAlive   int              `json:"keep_alive.omitempty"`
+	LogProbs    bool             `json:"logprobs,omitempty"`
+	TopLogprobs int              `json:"top_logprobs,omitempty"`
 }
 type ollamaResponse struct {
 	Model              string         `json:"model"`
@@ -52,22 +51,25 @@ type contentReader struct {
 	Data []byte
 	Dec  *json.Decoder
 	Pos  int
-	Resp ollamaResponse
+	resp ollamaResponse
+}
+type autoCloseReader struct {
+	Reader io.ReadCloser
 }
 type Options struct {
-	Seed        int     `json:"seed"`
-	Temperature float64 `json:"temperature"`
-	TopK        int     `json:"top_k"`
-	TopP        float64 `json:"top_p"`
-	MinP        float64 `json:"min_p"`
-	Stop        string  `json:"stop"`
-	NumCtx      int     `json:"num_ctx"`
-	NumPredict  int     `json:"num_predict"`
+	Seed        int     `json:"seed,omitempty"`
+	Temperature float64 `json:"temperature,omitempty"`
+	TopK        int     `json:"top_k,omitempty"`
+	TopP        float64 `json:"top_p,omitempty"`
+	MinP        float64 `json:"min_p,omitempty"`
+	Stop        string  `json:"stop,omitempty"`
+	NumCtx      int     `json:"num_ctx,omitempty"`
+	NumPredict  int     `json:"num_predict,omitempty"`
 }
 
 func (c *contentReader) Read(buf []byte) (int, error) {
 	if c.Pos >= len(c.Data) {
-		err := c.Dec.Decode(&c.Resp)
+		err := c.Dec.Decode(&c.resp)
 		if err != nil {
 			if err == io.EOF {
 				return 0, io.EOF
@@ -76,7 +78,7 @@ func (c *contentReader) Read(buf []byte) (int, error) {
 			return 0, err
 		}
 
-		c.Data = []byte(c.Resp.Message.Content)
+		c.Data = []byte(c.resp.Message.Content)
 		c.Pos = 0
 	}
 
@@ -85,27 +87,46 @@ func (c *contentReader) Read(buf []byte) (int, error) {
 	return n, nil
 }
 
+func (a *autoCloseReader) Read(buf []byte) (int, error) {
+	n, err := a.Reader.Read(buf)
+	if err != nil {
+		if err == io.EOF {
+			errCl := a.Reader.Close()
+			if errCl != nil {
+				log.Println(errCl)
+				return 0, io.EOF
+			}
+
+			return n, io.EOF
+		}
+
+		return 0, io.EOF
+	}
+
+	return n, nil
+}
+
 func (l *Ollama) SetSettings(settings *llmsdk.Settings) {
 	l.Settings = settings
 }
 
 func (l *Ollama) Send(messages []llmsdk.Message) (*llmsdk.LLMResponse, error) {
-	//opt := Options{
-	//	Seed:        l.Settings.Seed,
-	//	Temperature: l.Settings.Temperature,
-	//	TopK:        l.Settings.TopK,
-	//	TopP:        l.Settings.TopP,
-	//	MinP:        l.Settings.MinP,
-	//	Stop:        l.Settings.Stop,
-	//	NumCtx:      l.Settings.NumCtx,
-	//	NumPredict:  l.Settings.NumPredict,
-	//}
+	opt := Options{
+		Seed:        l.Settings.Seed,
+		Temperature: l.Settings.Temperature,
+		TopK:        l.Settings.TopK,
+		TopP:        l.Settings.TopP,
+		MinP:        l.Settings.MinP,
+		Stop:        l.Settings.Stop,
+		NumCtx:      l.Settings.NumCtx,
+		NumPredict:  l.Settings.NumPredict,
+	}
 
 	req := ollamaRequest{
-		Model:    l.Model.Name,
-		Messages: messages,
-		Stream:   l.Settings.Stream,
-		// Options:   opt,
+		Model:     l.Model.Name,
+		Messages:  messages,
+		Stream:    l.Settings.Stream,
+		Options:   opt,
 		Think:     l.Settings.Think,
 		KeepAlive: l.Settings.KeepAlive,
 	}
@@ -123,8 +144,7 @@ func (l *Ollama) Send(messages []llmsdk.Message) (*llmsdk.LLMResponse, error) {
 		return &llmsdk.LLMResponse{}, err
 	}
 
-	defer resp.Body.Close()
-	dec := json.NewDecoder(resp.Body)
+	dec := json.NewDecoder(&autoCloseReader{Reader: resp.Body})
 
 	llmResp := llmsdk.LLMResponse{
 		Message: llmsdk.Message{},
