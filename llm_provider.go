@@ -1,25 +1,57 @@
 package llmsdk
 
 import (
+	"encoding/json"
 	"io"
 )
 
-type Role string
+type (
+	Role     string
+	ToolType string
+)
 
 const (
-	User      Role = "user"
-	System    Role = "system"
-	Assistant Role = "assistant"
-	Tool      Role = "tool"
+	User         Role     = "user"
+	System       Role     = "system"
+	Assistant    Role     = "assistant"
+	ToolRole     Role     = "tool"
+	FunctionTool ToolType = "function"
 )
 
 type Message struct {
-	Role    Role   `json:"role"`
-	Content string `json:"content"`
+	Role      Role       `json:"role"`
+	Content   string     `json:"content"`
+	ToolCalls []ToolCall `json:"tools"`
+}
+
+type Tool struct {
+	Type        ToolType                     `json:"type"`
+	Name        string                       `json:"name"`
+	Description string                       `json:"description"`
+	HandlerFunc func([]byte) json.RawMessage `json:"-"`
+	Parameters  []Parameter                  `json:"parameters"`
+}
+
+type ToolCall struct {
+	ID        string          `json:"id"`
+	CallID    string          `json:"call_id"`
+	Name      string          `json:"name"`
+	Type      string          `json:"type"`
+	Arguments json.RawMessage `json:"arguments"`
+}
+
+type Parameter struct {
+	Type        string      `json:"type"`
+	Name        string      `json:"name,omitempty"`
+	Description string      `json:"description,omitempty"`
+	Properties  []Parameter `json:"properties,omitempty"`
+	Required    []string    `json:"required,omitempty"`
 }
 
 type ChuckedMessage struct {
-	Model string `json:"model"`
+	Model  string `json:"model"`
+	Done   bool   `json:"done"`
+	Tokens uint64 `json:"tokens"`
 }
 
 type LLMResponse struct {
