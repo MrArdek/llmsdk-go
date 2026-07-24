@@ -19,17 +19,18 @@ const (
 )
 
 type Message struct {
-	Role      Role       `json:"role"`
-	Content   string     `json:"content"`
-	ToolCalls []ToolCall `json:"tools"`
+	Role       Role       `json:"role"`
+	Content    string     `json:"content"`
+	ToolCalls  []ToolCall `json:"tool_calls"`
+	ToolCallID string     `json:"tool_call_id"`
 }
 
 type Tool struct {
-	Type        ToolType                     `json:"type"`
-	Name        string                       `json:"name"`
-	Description string                       `json:"description"`
-	HandlerFunc func([]byte) json.RawMessage `json:"-"`
-	Parameters  []Parameter                  `json:"parameters"`
+	Type        ToolType            `json:"type"`
+	Name        string              `json:"name"`
+	Description string              `json:"description"`
+	HandlerFunc func([]byte) []byte `json:"-"`
+	Parameters  []Parameter         `json:"parameters"`
 }
 
 type ToolCall struct {
@@ -60,6 +61,11 @@ type LLMResponse struct {
 	Done    bool
 	Reader  io.Reader
 	buf     []byte
+}
+
+type LLMRequest struct {
+	Messages []Message
+	Tools    []Tool
 }
 
 func (r *LLMResponse) Read(buf []byte) (int, error) {
@@ -100,10 +106,11 @@ type Settings struct {
 
 type LLMProvider interface {
 	Send(messages []Message) (*LLMResponse, error)
-	GetModelInfo() ModelInfo
+	GetModel() Model
+	SetModel(Model)
 	SetSettings(*Settings)
 }
 
-type ModelInfo struct {
+type Model struct {
 	Name string `json:"name"`
 }

@@ -14,12 +14,12 @@ import (
 const baseURL = "http://localhost:11434/api/chat"
 
 func NewOllamaProvider(modelName string, client *http.Client, settings *llmsdk.Settings) llmsdk.LLMProvider {
-	ol := Ollama{Model: llmsdk.ModelInfo{Name: modelName}, HTTPClient: client, Settings: settings}
+	ol := Ollama{Model: llmsdk.Model{Name: modelName}, HTTPClient: client, Settings: settings}
 	return &ol
 }
 
 type Ollama struct {
-	Model      llmsdk.ModelInfo
+	Model      llmsdk.Model
 	HTTPClient *http.Client
 	Settings   *llmsdk.Settings
 }
@@ -45,7 +45,6 @@ type ollamaResponse struct {
 	PromptEvalDuration int            `json:"prompt_eval_duration"`
 	EvalCount          int            `json:"eval_count"`
 	EvalDuration       int            `json:"eval_duration"`
-	// logprobs... I think we don't need this now
 }
 type contentReader struct {
 	Data []byte
@@ -137,6 +136,8 @@ func (l *Ollama) Send(messages []llmsdk.Message) (*llmsdk.LLMResponse, error) {
 		return &llmsdk.LLMResponse{}, err
 	}
 
+	log.Println(string(reqJSON))
+
 	resp, err := l.HTTPClient.Post(baseURL, "application/json", bytes.NewReader(reqJSON))
 	if err != nil {
 		log.Println("error while getting resp")
@@ -153,6 +154,10 @@ func (l *Ollama) Send(messages []llmsdk.Message) (*llmsdk.LLMResponse, error) {
 	return &llmResp, nil
 }
 
-func (l *Ollama) GetModelInfo() llmsdk.ModelInfo {
+func (l *Ollama) GetModel() llmsdk.Model {
 	return l.Model
+}
+
+func (l *Ollama) SetModel(m llmsdk.Model) {
+	l.Model = m
 }
